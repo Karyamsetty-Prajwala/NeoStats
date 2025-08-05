@@ -5,11 +5,10 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import Tool
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from models.llm import get_chatgroq_model
-from models.embeddings import get_huggingface_embeddings
-from utils.rag import get_text_chunks, get_vector_store
-from utils.web_search import get_tavily_tool
+from .models.llm import get_chatgroq_model
+from .models.embeddings import get_huggingface_embeddings
+from .utils.rag import get_text_chunks, get_vector_store
+from .utils.web_search import get_tavily_tool
 
 def get_agent_response(agent_executor, messages):
     """Get response from the agent executor"""
