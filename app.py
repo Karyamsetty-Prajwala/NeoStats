@@ -8,9 +8,6 @@ api_key = os.getenv("TAVILY_API_KEY")
 # Import TavilySearch AFTER loading the API key
 from langchain_tavily import TavilySearch
 
-# Initialize Tavily Tool
-tavily_tool = TavilySearch(api_key=api_key)
-
 # Other necessary imports
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate
@@ -22,19 +19,17 @@ from models.llm import get_chatgroq_model
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
 
-# ==============================================================================
-# Function Definitions
-# ==============================================================================
 
 def get_openai_embeddings():
     try:
-        openai_key = os.getenv("OPENAI_API_KEY")
+        openai_key = st.secrets.get("OPENAI_API_KEY")
         if not openai_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set.")
+            raise ValueError("OPENAI_API_KEY missing in Streamlit secrets")
         embeddings = OpenAIEmbeddings(openai_api_key=openai_key)
         return embeddings
     except Exception as e:
         raise RuntimeError(f"Failed to initialize OpenAI embeddings: {str(e)}")
+
 
 def get_text_chunks(file_path):
     try:
@@ -46,12 +41,19 @@ def get_text_chunks(file_path):
     except Exception as e:
         raise RuntimeError(f"Failed to load or split PDF: {str(e)}")
 
+
 def get_vector_store(text_chunks, embeddings_model):
     try:
+        print(f"Number of chunks: {len(text_chunks)}")
+        print(f"Embedding model: {embeddings_model}")
         vector_store = FAISS.from_documents(documents=text_chunks, embedding=embeddings_model)
         return vector_store
     except Exception as e:
+        import traceback
+        print("Traceback for vector store failure:\n", traceback.format_exc())
         raise RuntimeError(f"Failed to create vector store: {str(e)}")
+
+
 
 def get_tavily_tool():
     try:
@@ -63,6 +65,7 @@ def get_tavily_tool():
     except Exception as e:
         raise RuntimeError(f"Failed to initialize Tavily Search Tool: {str(e)}")
 
+
 def get_agent_response(agent_executor, messages):
     try:
         last_human_message = messages[-1]["content"] if messages else ""
@@ -70,6 +73,7 @@ def get_agent_response(agent_executor, messages):
         return response['output']
     except Exception as e:
         return f"Error getting response: {str(e)}"
+
 
 # ==============================================================================
 # Streamlit App Pages
@@ -96,6 +100,7 @@ def instructions_page():
     Navigate to the **Chat** page to start.
     """)
 
+
 def chat_page():
     st.title("🤖 AI ChatBot")
 
@@ -111,10 +116,19 @@ def chat_page():
         st.session_state.chat_model = get_chatgroq_model()
 
     if "embeddings" not in st.session_state:
-        st.session_state.embeddings = get_openai_embeddings()
+        try:
+            st.session_state.embeddings = get_openai_embeddings()
+            st.write("Embeddings initialized:", st.session_state.embeddings)
+        except Exception as e:
+            st.error(f"Error initializing embeddings: {e}")
+            return  # stop execution if embeddings fail
 
     if "tavily_tool" not in st.session_state:
-        st.session_state.tavily_tool = get_tavily_tool()
+        try:
+            st.session_state.tavily_tool = get_tavily_tool()
+        except Exception as e:
+            st.error(f"Error initializing Tavily tool: {e}")
+            return
 
     st.sidebar.subheader("Document Upload")
     uploaded_file = st.sidebar.file_uploader("Upload a PDF legal document", type=["pdf"])
@@ -123,10 +137,15 @@ def chat_page():
         with st.spinner("Processing document..."):
             with open("temp.pdf", "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            text_chunks = get_text_chunks("temp.pdf")
-            vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
-            st.session_state.retriever = vector_store.as_retriever()
-            st.sidebar.success("Document processed and ready!")
+            try:
+                text_chunks = get_text_chunks("temp.pdf")
+                st.write(f"Number of text chunks: {len(text_chunks)}")
+                vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
+                st.session_state.retriever = vector_store.as_retriever()
+                st.sidebar.success("Document processed and ready!")
+            except Exception as e:
+                st.error(f"Error processing document: {e}")
+                return
 
     tools = [st.session_state.tavily_tool]
     if "retriever" in st.session_state:
@@ -167,6 +186,7 @@ def chat_page():
     else:
         st.info("No API keys found. Please check the Instructions page.")
 
+
 # ==============================================================================
 # Main App Entrypoint
 # ==============================================================================
@@ -191,12 +211,13 @@ def main():
                     os.remove("temp.pdf")
                 if "retriever" in st.session_state:
                     del st.session_state.retriever
-                st.rerun()
+                st.experimental_rerun()
 
     if page == "Instructions":
         instructions_page()
     else:
         chat_page()
+
 
 if __name__ == "__main__":
     main()
