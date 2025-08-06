@@ -1,53 +1,42 @@
-# Imports for RAG functionality
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from langchain.prompts import ChatPromptTemplate
 
+# Get API key from .env
+api_key = os.getenv("TAVILY_API_KEY")
+
+# Import TavilySearch AFTER loading the API key
+from langchain_tavily import TavilySearch
+
+# Initialize Tavily Tool
+tavily_tool = TavilySearch(api_key=api_key)
+
+# Other necessary imports
 import streamlit as st
+from langchain.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-tavily_tool = TavilySearch(api_key=api_key)
-from langchain_tavily import TavilySearch
-
-
-
-
-# NEW: Import for OpenAI Embeddings
 from langchain_openai import OpenAIEmbeddings
 from models.llm import get_chatgroq_model
-
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.tools.retriever import create_retriever_tool
 
 # ==============================================================================
-# Consolidated Function Definitions
+# Function Definitions
 # ==============================================================================
-
-# ... (all other functions remain the same)
-
-def get_huggingface_embeddings():
-    """Initializes and returns a HuggingFace embedding model."""
-    try:
-        # We will replace this with an API-based model for better deployment reliability
-        # return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        pass # This function is no longer needed
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize HuggingFace embeddings: {str(e)}")
 
 def get_openai_embeddings():
-    """Initializes and returns the OpenAI embedding model."""
     try:
         openai_key = os.getenv("OPENAI_API_KEY")
         if not openai_key:
             raise ValueError("OPENAI_API_KEY environment variable not set.")
-        
         embeddings = OpenAIEmbeddings(openai_api_key=openai_key)
         return embeddings
     except Exception as e:
         raise RuntimeError(f"Failed to initialize OpenAI embeddings: {str(e)}")
 
 def get_text_chunks(file_path):
-    """Loads a PDF and splits it into text chunks."""
     try:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
@@ -58,7 +47,6 @@ def get_text_chunks(file_path):
         raise RuntimeError(f"Failed to load or split PDF: {str(e)}")
 
 def get_vector_store(text_chunks, embeddings_model):
-    """Creates a FAISS vector store from text chunks and embeddings."""
     try:
         vector_store = FAISS.from_documents(documents=text_chunks, embedding=embeddings_model)
         return vector_store
@@ -70,15 +58,12 @@ def get_tavily_tool():
         api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
             raise ValueError("TAVILY_API_KEY not set in environment variables.")
-        
         tavily_tool = TavilySearch(api_key=api_key)
         return tavily_tool
-
     except Exception as e:
         raise RuntimeError(f"Failed to initialize Tavily Search Tool: {str(e)}")
 
 def get_agent_response(agent_executor, messages):
-    """Get response from the agent executor"""
     try:
         last_human_message = messages[-1]["content"] if messages else ""
         response = agent_executor.invoke({"input": last_human_message})
@@ -87,95 +72,53 @@ def get_agent_response(agent_executor, messages):
         return f"Error getting response: {str(e)}"
 
 # ==============================================================================
-# Streamlit App Logic
+# Streamlit App Pages
 # ==============================================================================
 
 def instructions_page():
-    """Instructions and setup page"""
     st.title("The Chatbot Blueprint")
-    st.markdown("Welcome! Follow these instructions to set up and use the chatbot.")
-    
     st.markdown("""
-    ## 📥 Installation
-    First, install the required dependencies: (Add Additional Libraries base don your needs)
-    
+    ## 📅 Installation
     ```bash
     pip install -r requirements.txt
     ```
-    
+
     ## API Key Setup
-    You'll need API keys from your chosen provider. Get them from:
-    
-    ### OpenAI
-    - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-    - Create a new API key
-    - Set the variables in config
-    
-    ### Groq
-    - Visit [Groq Console](https://console.groq.com/keys)
-    - Create a new API key
-    - Set the variables in config
-    
-    ### Google Gemini
-    - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-    - Create a new API key
-    - Set the variables in config
-    
-    ## 🛠️ Available Models
-    ### OpenAI Models
-    Check [OpenAI Models Documentation](https://platform.openai.com/docs/models) for the latest available models.
-    Popular models include:
-    - `gpt-4o` - Latest GPT-4 Omni model
-    
-    ### Groq Models
-    Check [Groq Models Documentation](https://console.groq.com/docs/models) for available models.
-    Popular models include:
-    - `llama-3.1-70b-versatile` - Large, powerful model
-    
-    ### Google Gemini Models
-    Check [Gemini Models Documentation](https://ai.google.dev/gemini-api/docs/models/gemini) for available models.
-    Popular models include:
-    - `gemini-1.5-pro` - Most capable model
-    
+    - [OpenAI](https://platform.openai.com/api-keys)
+    - [Groq](https://console.groq.com/keys)
+    - [Google Gemini](https://aistudio.google.com/app/apikey)
+
     ## How to Use
-    1. **Go to the Chat page** (use the navigation in the sidebar)
-    2. **Start chatting** once everything is configured!
-    
-    ## Troubleshooting
-    - **API Key Issues**: Make sure your API key is valid and has sufficient credits
-    
+    1. Upload a legal document on the **Chat** page.
+    2. Ask questions about it.
+
     ---
-    Ready to start chatting? Navigate to the **Chat** page using the sidebar! 
+    Navigate to the **Chat** page to start.
     """)
 
 def chat_page():
-    """Main chat interface page"""
     st.title("🤖 AI ChatBot")
-    
-    response_mode = st.sidebar.radio(
-        "Select Response Mode:",
-        ("Concise", "Detailed"),
-        index=0
-    )
-    
+
+    response_mode = st.sidebar.radio("Select Response Mode:", ("Concise", "Detailed"), index=0)
+
     base_prompt = "You are a helpful legal document assistant."
-    if response_mode == "Concise":
-        mode_prompt = "Provide short, summarized replies based on the context."
-    else:
-        mode_prompt = "Provide expanded, in-depth responses with detailed explanations based on the context."
-        
+    mode_prompt = "Provide short, summarized replies based on the context." if response_mode == "Concise" \
+        else "Provide expanded, in-depth responses with detailed explanations based on the context."
+
     system_prompt = f"{base_prompt} {mode_prompt} If the user asks about recent legal updates or information not in the documents, use the web search tool."
-    
+
     if "chat_model" not in st.session_state:
         st.session_state.chat_model = get_chatgroq_model()
+
     if "embeddings" not in st.session_state:
-        st.session_state.embeddings = get_huggingface_embeddings()
+        st.session_state.embeddings = get_openai_embeddings()
+
     if "tavily_tool" not in st.session_state:
         st.session_state.tavily_tool = get_tavily_tool()
-    
+
     st.sidebar.subheader("Document Upload")
     uploaded_file = st.sidebar.file_uploader("Upload a PDF legal document", type=["pdf"])
-    
+
     if uploaded_file and "retriever" not in st.session_state:
         with st.spinner("Processing document..."):
             with open("temp.pdf", "wb") as f:
@@ -184,36 +127,33 @@ def chat_page():
             vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
             st.session_state.retriever = vector_store.as_retriever()
             st.sidebar.success("Document processed and ready!")
-    
+
     tools = [st.session_state.tavily_tool]
     if "retriever" in st.session_state:
-        from langchain.tools.retriever import create_retriever_tool
         retriever_tool = create_retriever_tool(
             st.session_state.retriever,
             "legal_document_search",
-            "Searches and returns documents regarding legal questions.",
+            "Searches and returns documents regarding legal questions."
         )
         tools.append(retriever_tool)
-    
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ]
-    )
-    
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("placeholder", "{chat_history}"),
+        ("human", "{input}"),
+        ("placeholder", "{agent_scratchpad}"),
+    ])
+
     agent = create_tool_calling_agent(st.session_state.chat_model, tools, prompt)
     agent_executor = AgentExecutor(agent=agent, tools=tools)
-    
+
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-    
+
     if st.session_state.chat_model:
         if prompt_input := st.chat_input("Type your message here..."):
             st.session_state.messages.append({"role": "user", "content": prompt_input})
@@ -225,7 +165,11 @@ def chat_page():
                     st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
     else:
-        st.info("No API keys found in environment variables. Please check the Instructions page to set up your API keys.")
+        st.info("No API keys found. Please check the Instructions page.")
+
+# ==============================================================================
+# Main App Entrypoint
+# ==============================================================================
 
 def main():
     st.set_page_config(
@@ -234,15 +178,11 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    
+
     with st.sidebar:
         st.title("Navigation")
-        page = st.radio(
-            "Go to:",
-            ["Chat", "Instructions"],
-            index=0
-        )
-        
+        page = st.radio("Go to:", ["Chat", "Instructions"], index=0)
+
         if page == "Chat":
             st.divider()
             if st.button("🔄 Clear Chat History", use_container_width=True):
@@ -252,10 +192,10 @@ def main():
                 if "retriever" in st.session_state:
                     del st.session_state.retriever
                 st.rerun()
-    
+
     if page == "Instructions":
         instructions_page()
-    if page == "Chat":
+    else:
         chat_page()
 
 if __name__ == "__main__":
