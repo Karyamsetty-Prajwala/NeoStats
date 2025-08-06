@@ -8,4 +8,9 @@ pypdf
 faiss-cpu
 sentence-transformers
 tavily-python
+streamlit
+langchain>=0.3.25
+langchain-tavily
+python-dotenv
+
 
