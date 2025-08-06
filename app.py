@@ -1,7 +1,8 @@
+# Imports for RAG functionality
 import os
 from dotenv import load_dotenv
 load_dotenv()
-# Imports for RAG functionality
+
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -35,7 +36,6 @@ def get_chatgroq_model():
         return groq_model
     except Exception as e:
         raise RuntimeError(f"Failed to initialize Groq model: {str(e)}")
-
 def get_openai_embeddings():
     """Initializes and returns the OpenAI embedding model."""
     try:
