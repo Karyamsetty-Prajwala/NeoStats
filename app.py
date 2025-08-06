@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+import pdfplumber
 
 # Import TavilySearch BEFORE it is used
 from langchain_tavily import TavilySearch
@@ -36,29 +37,21 @@ def get_openai_embeddings():
         st.stop() # Stop the script execution on embedding initialization failure
 
 
-def get_text_chunks(file_path):
-    """
-    Loads a PDF and splits it into text chunks.
-    Uses UnstructuredPDFLoader for better handling of various PDF types.
-    Returns an empty list if no documents are loaded or an error occurs.
-    """
-    try:
-        loader = UnstructuredPDFLoader(file_path)
-        documents = loader.load()
-        
-        if not documents:
-            st.warning("No text could be extracted from the uploaded PDF. It might be empty or scanned without OCR.")
-            return [] # Return an empty list if no documents are loaded
+def get_text_chunks_pdfplumber(file_path):
+    with pdfplumber.open(file_path) as pdf:
+        full_text = ''
+        for page in pdf.pages:
+            full_text += page.extract_text() + '\n'
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = text_splitter.split_documents(documents)
-        return chunks
-    except Exception as e:
-        st.error(f"Error loading or splitting PDF: {str(e)}")
-        # import traceback # Uncomment for detailed debugging in console
-        # print("Traceback for text chunking failure:\n", traceback.format_exc())
-        return [] # Return an empty list on error
-
+    chunk_size = 1000
+    overlap = 200
+    chunks = []
+    start = 0
+    while start < len(full_text):
+        end = min(start + chunk_size, len(full_text))
+        chunks.append(full_text[start:end])
+        start += chunk_size - overlap
+    return chunks
 
 def get_vector_store(text_chunks, embeddings_model):
     """
@@ -146,6 +139,8 @@ def instructions_page():
     ---
     Navigate to the **Chat** page to start.
     """)
+def get_text_chunks(file_path):
+    return get_text_chunks_pdfplumber(file_path)
 
 
 def chat_page():
