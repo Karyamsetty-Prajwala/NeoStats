@@ -2,12 +2,16 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from langchain.prompts import ChatPromptTemplate
 
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.tools.tavily_search import TavilySearchResults
+tavily_tool = TavilySearch(api_key=api_key)
+from langchain_tavily import TavilySearch
+
+
 
 
 # NEW: Import for OpenAI Embeddings
@@ -62,14 +66,14 @@ def get_vector_store(text_chunks, embeddings_model):
         raise RuntimeError(f"Failed to create vector store: {str(e)}")
 
 def get_tavily_tool():
-    """Initializes and returns the Tavily web search tool."""
     try:
         api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
-            raise ValueError("TAVILY_API_KEY environment variable not set.")
+            raise ValueError("TAVILY_API_KEY not set in environment variables.")
         
-        tavily_tool = TavilySearchResults(api_key=api_key)
+        tavily_tool = TavilySearch(api_key=api_key)
         return tavily_tool
+
     except Exception as e:
         raise RuntimeError(f"Failed to initialize Tavily Search Tool: {str(e)}")
 
