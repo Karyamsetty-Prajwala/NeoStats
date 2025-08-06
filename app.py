@@ -14,8 +14,6 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
-# Imports for Web Search functionality
-from langchain_community.tools.tavily_research import TavilySearchResults
 
 # LLM Model from Groq
 from langchain_groq import ChatGroq
