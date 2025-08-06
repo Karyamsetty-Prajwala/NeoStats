@@ -12,6 +12,8 @@ from langchain_tavily import TavilySearch
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import UnstructuredPDFLoader
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -32,8 +34,10 @@ def get_openai_embeddings():
 
 
 def get_text_chunks(file_path):
+    """Loads a PDF and splits it into text chunks."""
     try:
-        loader = PyPDFLoader(file_path)
+        # Use UnstructuredPDFLoader for better PDF handling
+        loader = UnstructuredPDFLoader(file_path)
         documents = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_documents(documents)
