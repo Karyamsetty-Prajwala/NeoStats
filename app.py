@@ -2,6 +2,10 @@ import streamlit as st
 import os
 import sys
 
+# Add this line to load environment variables from the .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Core LangChain Imports
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -13,6 +17,9 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+
+# Imports for Web Search functionality
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 # LLM Model from Groq
