@@ -21,6 +21,17 @@ def get_huggingface_embeddings():
         pass # This function is no longer needed
     except Exception as e:
         raise RuntimeError(f"Failed to initialize HuggingFace embeddings: {str(e)}")
+def get_chatgroq_model():
+    """Initialize and return the Groq chat model"""
+    try:
+        # Initialize the Groq chat model with the API key
+        groq_model = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model=os.getenv("GROQ_MODEL", "llama3-8b-8192"),
+        )
+        return groq_model
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize Groq model: {str(e)}")
 
 def get_openai_embeddings():
     """Initializes and returns the OpenAI embedding model."""
