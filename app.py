@@ -64,9 +64,9 @@ def get_vector_store(text_chunks, embeddings_model):
 def get_tavily_tool():
     """Initializes and returns the Tavily web search tool."""
     try:
-        api_key = os.getenv("WEB_SEARCH_API_KEY")
+        api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
-            raise ValueError("WEB_SEARCH_API_KEY environment variable not set.")
+            raise ValueError("TAVILY_API_KEY environment variable not set.")
         
         tavily_tool = TavilySearchResults(api_key=api_key)
         return tavily_tool
