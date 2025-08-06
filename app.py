@@ -7,6 +7,8 @@ import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+from langchain_community.tools.tavily_research import TavilySearchResults
+
 
 # NEW: Import for OpenAI Embeddings
 from langchain_openai import OpenAIEmbeddings
