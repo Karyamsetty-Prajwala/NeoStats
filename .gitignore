@@ -9,3 +9,5 @@ __pycache__/
 
 # Ignore temporary files
 temp.pdf
+".streamlit/secrets.toml" 
+".streamlit/secrets.toml" 
