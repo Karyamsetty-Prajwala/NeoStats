@@ -12,3 +12,4 @@ unstructured
 pdfminer.six
 lxml
 pillow
+pi-heif
