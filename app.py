@@ -1,61 +1,37 @@
-import streamlit as st
-import os
-import sys
-
-# Add this line to load environment variables from the .env file
-from dotenv import load_dotenv
-load_dotenv()
-
-# Core LangChain Imports
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.tools import Tool
-
 # Imports for RAG functionality
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
-# Imports for Web Search functionality
-from langchain_community.tools.tavily_search import TavilySearchResults
-
-
-# LLM Model from Groq
-from langchain_groq import ChatGroq
+# NEW: Import for OpenAI Embeddings
+from langchain_openai import OpenAIEmbeddings
 
 # ==============================================================================
 # Consolidated Function Definitions
 # ==============================================================================
 
-def get_chatgroq_model():
-    """Initialize and return the Groq chat model"""
-    try:
-        # Initialize the Groq chat model with the API key
-        groq_model = ChatGroq(
-            api_key=os.getenv("GROQ_API_KEY"),
-            model=os.getenv("GROQ_MODEL", "llama3-8b-8192"),
-        )
-        return groq_model
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize Groq model: {str(e)}")
+# ... (all other functions remain the same)
 
 def get_huggingface_embeddings():
     """Initializes and returns a HuggingFace embedding model."""
     try:
-        model_name = "sentence-transformers/all-MiniLM-L6-v2"
-        model_kwargs = {'device': 'cpu'}
-        encode_kwargs = {'normalize_embeddings': False}
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name=model_name,
-            model_kwargs=model_kwargs,
-            encode_kwargs=encode_kwargs
-        )
-        return embeddings
+        # We will replace this with an API-based model for better deployment reliability
+        # return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        pass # This function is no longer needed
     except Exception as e:
         raise RuntimeError(f"Failed to initialize HuggingFace embeddings: {str(e)}")
+
+def get_openai_embeddings():
+    """Initializes and returns the OpenAI embedding model."""
+    try:
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if not openai_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set.")
+        
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_key)
+        return embeddings
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize OpenAI embeddings: {str(e)}")
 
 def get_text_chunks(file_path):
     """Loads a PDF and splits it into text chunks."""
