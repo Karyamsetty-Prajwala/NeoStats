@@ -1,3 +1,6 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
 # Imports for RAG functionality
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
