@@ -13,3 +13,5 @@ pdfminer.six
 lxml
 pillow
 pi-heif
+unstructured[local-inference]
+unstructured_inference
