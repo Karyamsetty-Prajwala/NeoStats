@@ -1,28 +1,21 @@
+# embedding.py
 import os
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+load_dotenv()
 
-def get_huggingface_embeddings():
-    """Initializes and returns a HuggingFace embedding model."""
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+def get_gemini_embeddings():
+    """Initializes and returns Google Gemini Embeddings."""
     try:
-        # We'll use a local, open-source model for simplicity
-        model_name = "sentence-transformers/all-MiniLM-L6-v2"
-        model_kwargs = {'device': 'cpu'}
-        encode_kwargs = {'normalize_embeddings': False}
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name=model_name,
-            model_kwargs=model_kwargs,
-            encode_kwargs=encode_kwargs
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables.")
+        
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=gemini_key
         )
         return embeddings
     except Exception as e:
-        # The project guidelines recommend wrapping functional code in try/except blocks 
-        raise RuntimeError(f"Failed to initialize HuggingFace embeddings: {str(e)}")
-
-if __name__ == '__main__':
-    # Example of how to use the function
-    try:
-        embeddings_model = get_huggingface_embeddings()
-        print("HuggingFace Embeddings model initialized successfully.")
-    except RuntimeError as e:
-        print(e)
+        raise RuntimeError(f"Failed to initialize Gemini embeddings: {str(e)}")

@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import pdfplumber
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Import TavilySearch BEFORE it is used
 from langchain_tavily import TavilySearch
@@ -16,25 +17,28 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.document_loaders import UnstructuredPDFLoader # Keep this import, as it's used
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
+
 from models.llm import get_chatgroq_model # Assuming models.llm exists and get_chatgroq_model is defined
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
 from langchain.schema import Document  
 
-def get_openai_embeddings():
-    """Initializes and returns an OpenAIEmbeddings model."""
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+def get_gemini_embeddings():
+    """Initializes and returns Google Gemini Embeddings."""
     try:
-        openai_key = st.secrets.get("OPENAI_API_KEY")
-        if not openai_key:
-            # Display an error and stop execution if API key is missing
-            st.error("OPENAI_API_KEY missing in Streamlit secrets. Please set it to use embeddings.")
-            st.stop() # Stop the script execution
-        embeddings = OpenAIEmbeddings(openai_api_key=openai_key)
+        gemini_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
+        if not gemini_key:
+            st.error("GEMINI_API_KEY not found. Please add it to your environment or Streamlit secrets.")
+            st.stop()
+
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=gemini_key)
         return embeddings
     except Exception as e:
-        st.error(f"Failed to initialize OpenAI embeddings: {str(e)}")
-        st.stop() # Stop the script execution on embedding initialization failure
+        st.error(f"Failed to initialize Gemini embeddings: {str(e)}")
+        st.stop()
+
 
 
 def get_text_chunks_pdfplumber(file_path):
@@ -158,7 +162,13 @@ def chat_page():
         st.session_state.chat_model = get_chatgroq_model() # Ensure this function handles its API key internally or via st.secrets
 
     if "embeddings" not in st.session_state:
-        st.session_state.embeddings = get_openai_embeddings() # This function now handles errors and stops execution
+     try:
+        st.session_state.embeddings = get_gemini_embeddings()
+     except Exception as e:
+        st.error(str(e))
+        st.stop()
+
+
 
     if "tavily_tool" not in st.session_state:
         st.session_state.tavily_tool = get_tavily_tool() # This function now handles errors and stops execution
