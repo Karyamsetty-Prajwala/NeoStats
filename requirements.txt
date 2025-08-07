@@ -15,3 +15,5 @@ pillow
 pi-heif
 unstructured[local-inference]
 unstructured_inference
+pdfplumber
+
