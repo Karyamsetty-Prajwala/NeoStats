@@ -7,7 +7,7 @@ langchain-community
 pypdf
 faiss-cpu
 sentence-transformers
-tavily-python
+langchain-tavily  # ✅ Corrected package name
 unstructured
 pdfminer.six
 lxml
