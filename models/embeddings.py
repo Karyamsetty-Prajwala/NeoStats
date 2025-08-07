@@ -14,7 +14,7 @@ if os.getenv("ENV") != "production":
 load_dotenv()
 
 def get_gemini_embeddings():
-    """Initializes and returns Google Gemini Embeddings with working event loop in Streamlit."""
+   
     try:
         # Patch existing or create new event loop
         try:

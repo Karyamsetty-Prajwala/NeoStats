@@ -4,7 +4,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
 def get_text_chunks(file_path):
-    """Loads a PDF and splits it into text chunks."""
+    
     try:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
@@ -15,7 +15,7 @@ def get_text_chunks(file_path):
         raise RuntimeError(f"Failed to load or split PDF: {str(e)}")
 
 def get_vector_store(text_chunks, embeddings_model):
-    """Creates a FAISS vector store from text chunks and embeddings."""
+    
     try:
         vector_store = FAISS.from_documents(documents=text_chunks, embedding=embeddings_model)
         return vector_store

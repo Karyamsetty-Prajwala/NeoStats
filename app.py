@@ -26,9 +26,6 @@ from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
 from langchain.schema import Document
 
-# ❌ REMOVE the old get_gemini_embeddings function from app.py
-# The patched version from embeddings.py is now being used
-
 def get_text_chunks_pdfplumber(file_path):
     with pdfplumber.open(file_path) as pdf:
         full_text = ''
@@ -64,7 +61,6 @@ def get_vector_store(text_chunks, embeddings_model):
         return None
 
 def get_tavily_tool():
-    """Initializes and returns the Tavily Search Tool."""
     try:
         api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
@@ -77,7 +73,6 @@ def get_tavily_tool():
         st.stop()
 
 def get_agent_response(agent_executor, messages):
-    """Invokes the agent executor with the last human message."""
     try:
         chat_history_for_agent = []
         for msg in messages:
@@ -95,11 +90,17 @@ def get_agent_response(agent_executor, messages):
         st.error(f"Error getting response from agent: {str(e)}")
         return "An error occurred while generating the response."
 
-system_prompt = """You are a helpful legal assistant. Your primary function is to answer questions based on the uploaded legal document.
+def get_system_prompt(response_mode):
+    base_prompt = """You are a helpful legal assistant. Your primary function is to answer questions based on the uploaded legal document.
 You should also use the Tavily Search tool to find recent legal updates or supplementary information when the question requires it.
 If the question is about a specific document, use the `legal_document_search` tool.
 If the question requires general legal knowledge or web searches, use the `tavily_search_results_json` tool.
 Always cite your sources and be concise and professional."""
+
+    if response_mode == "Concise":
+        return base_prompt + "\nRespond concisely and summarize answers clearly in 1-2 sentences when possible."
+    else:
+        return base_prompt + "\nProvide detailed, thorough answers with reasoning and explanation when appropriate."
 
 def instructions_page():
     st.title("The Chatbot Blueprint")
@@ -124,6 +125,7 @@ def instructions_page():
     ---
     Navigate to the **Chat** page to start.
     """)
+
 def get_text_chunks(file_path):
     return get_text_chunks_pdfplumber(file_path)
 
@@ -132,6 +134,10 @@ def chat_page():
 
     st.sidebar.subheader("Document Upload")
     uploaded_file = st.sidebar.file_uploader("Upload a PDF legal document", type=["pdf"])
+
+    st.sidebar.subheader("Response Mode")
+    response_mode = st.sidebar.radio("Choose response style:", ["Concise", "Detailed"], index=0)
+    st.session_state.response_mode = response_mode
 
     if "chat_model" not in st.session_state:
         try:
@@ -142,7 +148,6 @@ def chat_page():
 
     if "embeddings" not in st.session_state:
         try:
-            # ✅ Using the patched function from embeddings.py
             st.session_state.embeddings = get_gemini_embeddings()
         except Exception as e:
             st.error(str(e))
@@ -158,20 +163,21 @@ def chat_page():
     if uploaded_file and "retriever" not in st.session_state:
         with st.spinner("Processing document..."):
             temp_file_path = "temp.pdf"
-            with open(temp_file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+        with open(temp_file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
-            text_chunks = get_text_chunks(temp_file_path)
-            if text_chunks:
-                vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
-                if vector_store:
-                    st.session_state.retriever = vector_store.as_retriever()
-                    st.sidebar.success("Document processed!")
-                else:
-                    st.sidebar.error("Could not create vector store. Try another PDF.")
+        text_chunks = get_text_chunks(temp_file_path)
+        if text_chunks:
+            vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
+            if vector_store:
+                st.session_state.retriever = vector_store.as_retriever()
+                st.sidebar.success("Document processed!")
             else:
-                st.sidebar.error("Text extraction failed. Upload a readable PDF.")
+                st.sidebar.error("Could not create vector store. Try another PDF.")
+        else:
+            st.sidebar.error("Text extraction failed. Upload a readable PDF.")
 
+        if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
     tools = [st.session_state.tavily_tool]
@@ -184,7 +190,7 @@ def chat_page():
         tools.append(retriever_tool)
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
+        ("system", get_system_prompt(st.session_state.response_mode)),
         ("placeholder", "{chat_history}"),
         ("human", "{input}"),
         ("placeholder", "{agent_scratchpad}"),

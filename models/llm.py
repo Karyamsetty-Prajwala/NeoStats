@@ -2,7 +2,7 @@ import os
 from langchain_groq import ChatGroq
 
 def get_chatgroq_model():
-    """Initialize and return the Groq chat model"""
+    
     try:
         # Get API key from environment variable
         api_key = os.environ.get("GROQ_API_KEY")
