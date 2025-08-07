@@ -1,13 +1,21 @@
-# Ignore Python cache and virtualenv
+# Ignore virtual environment
+venv/
+
+# Python cache
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 
-# Ignore environment files
-.env
+# macOS system file
+.DS_Store
 
-# Ignore temporary files
+# Data and model artifacts
+*.pkl
+*.log
+*.db
+*.sqlite3
+
+# Temporary files
 temp.pdf
-".streamlit/secrets.toml" 
-".streamlit/secrets.toml" 
+
+# Streamlit secrets file (sensitive)
+.streamlit/secrets.toml
