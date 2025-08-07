@@ -1,16 +1,22 @@
-# embedding.py
+# models/embedding.py
+
 import os
 import asyncio
 import nest_asyncio
 from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
+# Optional: Only disable SSL checks in development
+if os.getenv("ENV") != "production":
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
+
 load_dotenv()
 
 def get_gemini_embeddings():
     """Initializes and returns Google Gemini Embeddings with working event loop in Streamlit."""
     try:
-        # ✅ Patch any existing event loop to allow nested async calls
+        # Patch existing or create new event loop
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
