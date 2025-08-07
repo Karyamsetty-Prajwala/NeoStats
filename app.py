@@ -43,8 +43,8 @@ def get_text_chunks_pdfplumber(file_path):
         for page in pdf.pages:
             full_text += page.extract_text() + '\n'
 
-    chunk_size = 1000
-    overlap = 200
+    chunk_size = 2000
+    overlap = 400
     chunks = []
     start = 0
     while start < len(full_text):
