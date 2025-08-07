@@ -147,36 +147,33 @@ def get_text_chunks(file_path):
 def chat_page():
     st.title("🤖 AI Legal Assistant")
 
-    # Sidebar for response mode
-    response_mode = st.sidebar.radio("Select Response Mode:", ("Concise", "Detailed"), index=0)
-
-    # Dynamic system prompt based on response mode
-    base_prompt = "You are a helpful legal document assistant."
-    mode_prompt = "Provide short, summarized replies based on the context." if response_mode == "Concise" \
-        else "Provide expanded, in-depth responses with detailed explanations based on the context."
-
-    system_prompt = f"{base_prompt} {mode_prompt} If the user asks about recent legal updates or information not in the documents, use the web search tool."
-
-    # Initialize models and tools only once
-    if "chat_model" not in st.session_state:
-        st.session_state.chat_model = get_chatgroq_model() # Ensure this function handles its API key internally or via st.secrets
-
-    if "embeddings" not in st.session_state:
-     try:
-        st.session_state.embeddings = get_gemini_embeddings()
-     except Exception as e:
-        st.error(str(e))
-        st.stop()
-
-
-
-    if "tavily_tool" not in st.session_state:
-        st.session_state.tavily_tool = get_tavily_tool() # This function now handles errors and stops execution
-
+    # Sidebar: always show upload option
     st.sidebar.subheader("Document Upload")
     uploaded_file = st.sidebar.file_uploader("Upload a PDF legal document", type=["pdf"])
 
-    # Process uploaded file if it exists and retriever is not yet set
+    # Model init
+    if "chat_model" not in st.session_state:
+        try:
+            st.session_state.chat_model = get_chatgroq_model()
+        except Exception as e:
+            st.error(str(e))
+            return
+
+    if "embeddings" not in st.session_state:
+        try:
+            st.session_state.embeddings = get_gemini_embeddings()
+        except Exception as e:
+            st.error(str(e))
+            return
+
+    if "tavily_tool" not in st.session_state:
+        try:
+            st.session_state.tavily_tool = get_tavily_tool()
+        except Exception as e:
+            st.error(str(e))
+            return
+
+    # ✅ Only process document if uploaded
     if uploaded_file and "retriever" not in st.session_state:
         with st.spinner("Processing document..."):
             temp_file_path = "temp.pdf"
@@ -184,23 +181,18 @@ def chat_page():
                 f.write(uploaded_file.getbuffer())
             
             text_chunks = get_text_chunks(temp_file_path)
-            
-            # Only proceed if text chunks were successfully extracted
             if text_chunks:
-                st.write(f"Number of text chunks: {len(text_chunks)}")
                 vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
-                
-                if vector_store: # Ensure vector_store was successfully created
+                if vector_store:
                     st.session_state.retriever = vector_store.as_retriever()
-                    st.sidebar.success("Document processed and ready!")
+                    st.sidebar.success("Document processed!")
                 else:
-                    st.sidebar.error("Could not create document retriever. Please try another PDF.")
+                    st.sidebar.error("Could not create vector store. Try another PDF.")
             else:
-                st.sidebar.error("Failed to extract text from the document. Please ensure it's a readable PDF.")
+                st.sidebar.error("Text extraction failed. Upload a readable PDF.")
             
-            # Clean up the temporary file regardless of success or failure
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            os.remove(temp_file_path)
+
 
 
     # Define tools for the agent
@@ -279,6 +271,7 @@ def main():
         instructions_page()
     else:
         chat_page()
+
 
 if __name__ == "__main__":
     main()
