@@ -20,7 +20,7 @@ from langchain_openai import OpenAIEmbeddings
 from models.llm import get_chatgroq_model # Assuming models.llm exists and get_chatgroq_model is defined
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
-
+from langchain.schema import Document  
 
 def get_openai_embeddings():
     """Initializes and returns an OpenAIEmbeddings model."""
@@ -54,26 +54,23 @@ def get_text_chunks_pdfplumber(file_path):
     return chunks
 
 def get_vector_store(text_chunks, embeddings_model):
-    """
-    Creates and returns a FAISS vector store from text chunks.
-    Handles cases where text_chunks might be empty.
-    """
     try:
         if not text_chunks:
             st.warning("Cannot create vector store: No text chunks were provided.")
-            return None # Return None if there are no chunks to process
+            return None
 
-        print(f"Number of chunks: {len(text_chunks)}")
+        # Convert list of strings to list of Document objects
+        documents = [Document(page_content=chunk) for chunk in text_chunks]
+
+        print(f"Number of chunks: {len(documents)}")
         print(f"Embedding model: {embeddings_model}")
-        vector_store = FAISS.from_documents(documents=text_chunks, embedding=embeddings_model)
+        vector_store = FAISS.from_documents(documents=documents, embedding=embeddings_model)
         return vector_store
     except Exception as e:
         import traceback
         print("Traceback for vector store failure:\n", traceback.format_exc())
         st.error(f"Failed to create vector store: {str(e)}. This might happen if the document is too small or unreadable.")
-        return None # Return None on error
-
-
+        return None
 def get_tavily_tool():
     """Initializes and returns the Tavily Search Tool."""
     try:
