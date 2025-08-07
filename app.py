@@ -5,7 +5,7 @@ import pdfplumber
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Import the patched get_gemini_embeddings function from your embeddings.py file
-from model.embeddings import get_gemini_embeddings
+from models.embeddings import get_gemini_embeddings
 
 # Import TavilySearch BEFORE it is used
 from langchain_tavily import TavilySearch
