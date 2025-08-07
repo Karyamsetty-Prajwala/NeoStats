@@ -16,4 +16,5 @@ pi-heif
 unstructured[local-inference]
 unstructured_inference
 pdfplumber
+nest_asyncio
 
