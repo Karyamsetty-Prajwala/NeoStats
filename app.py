@@ -4,6 +4,9 @@ load_dotenv()
 import pdfplumber
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
+# Import the patched get_gemini_embeddings function from your embeddings.py file
+from embeddings import get_gemini_embeddings
+
 # Import TavilySearch BEFORE it is used
 from langchain_tavily import TavilySearch
 
@@ -14,32 +17,17 @@ api_key = os.getenv("TAVILY_API_KEY")
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.document_loaders import UnstructuredPDFLoader # Keep this import, as it's used
+from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
-from models.llm import get_chatgroq_model # Assuming models.llm exists and get_chatgroq_model is defined
+from models.llm import get_chatgroq_model
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
-from langchain.schema import Document  
+from langchain.schema import Document
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
-def get_gemini_embeddings():
-    """Initializes and returns Google Gemini Embeddings."""
-    try:
-        gemini_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-        if not gemini_key:
-            st.error("GEMINI_API_KEY not found. Please add it to your environment or Streamlit secrets.")
-            st.stop()
-
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=gemini_key)
-        return embeddings
-    except Exception as e:
-        st.error(f"Failed to initialize Gemini embeddings: {str(e)}")
-        st.stop()
-
-
+# ❌ REMOVE the old get_gemini_embeddings function from app.py
+# The patched version from embeddings.py is now being used
 
 def get_text_chunks_pdfplumber(file_path):
     with pdfplumber.open(file_path) as pdf:
@@ -63,7 +51,6 @@ def get_vector_store(text_chunks, embeddings_model):
             st.warning("Cannot create vector store: No text chunks were provided.")
             return None
 
-        # Convert list of strings to list of Document objects
         documents = [Document(page_content=chunk) for chunk in text_chunks]
 
         print(f"Number of chunks: {len(documents)}")
@@ -75,24 +62,23 @@ def get_vector_store(text_chunks, embeddings_model):
         print("Traceback for vector store failure:\n", traceback.format_exc())
         st.error(f"Failed to create vector store: {str(e)}. This might happen if the document is too small or unreadable.")
         return None
+
 def get_tavily_tool():
     """Initializes and returns the Tavily Search Tool."""
     try:
         api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
             st.error("TAVILY_API_KEY not set in environment variables. Please set it.")
-            st.stop() # Stop the script execution
+            st.stop()
         tavily_tool = TavilySearch(api_key=api_key)
         return tavily_tool
     except Exception as e:
         st.error(f"Failed to initialize Tavily Search Tool: {str(e)}")
-        st.stop() # Stop the script execution on tool initialization failure
-
+        st.stop()
 
 def get_agent_response(agent_executor, messages):
     """Invokes the agent executor with the last human message."""
     try:
-        # Extract chat history for the agent if needed, otherwise just the last message
         chat_history_for_agent = []
         for msg in messages:
             if msg["role"] == "user":
@@ -100,22 +86,20 @@ def get_agent_response(agent_executor, messages):
             elif msg["role"] == "assistant":
                 chat_history_for_agent.append(("ai", msg["content"]))
 
-        # The agent executor typically expects 'input' and 'chat_history'
         response = agent_executor.invoke({
-            "input": messages[-1]["content"], # Last human message
-            "chat_history": chat_history_for_agent[:-1] # All messages except the very last user input
+            "input": messages[-1]["content"],
+            "chat_history": chat_history_for_agent[:-1]
         })
         return response['output']
     except Exception as e:
         st.error(f"Error getting response from agent: {str(e)}")
-        # import traceback # Uncomment for detailed debugging in console
-        # print("Traceback for agent response failure:\n", traceback.format_exc())
         return "An error occurred while generating the response."
 
-
-# ==============================================================================
-# Streamlit App Pages
-# ==============================================================================
+system_prompt = """You are a helpful legal assistant. Your primary function is to answer questions based on the uploaded legal document.
+You should also use the Tavily Search tool to find recent legal updates or supplementary information when the question requires it.
+If the question is about a specific document, use the `legal_document_search` tool.
+If the question requires general legal knowledge or web searches, use the `tavily_search_results_json` tool.
+Always cite your sources and be concise and professional."""
 
 def instructions_page():
     st.title("The Chatbot Blueprint")
@@ -143,15 +127,12 @@ def instructions_page():
 def get_text_chunks(file_path):
     return get_text_chunks_pdfplumber(file_path)
 
-
 def chat_page():
     st.title("🤖 AI Legal Assistant")
 
-    # Sidebar: always show upload option
     st.sidebar.subheader("Document Upload")
     uploaded_file = st.sidebar.file_uploader("Upload a PDF legal document", type=["pdf"])
 
-    # Model init
     if "chat_model" not in st.session_state:
         try:
             st.session_state.chat_model = get_chatgroq_model()
@@ -161,6 +142,7 @@ def chat_page():
 
     if "embeddings" not in st.session_state:
         try:
+            # ✅ Using the patched function from embeddings.py
             st.session_state.embeddings = get_gemini_embeddings()
         except Exception as e:
             st.error(str(e))
@@ -173,13 +155,12 @@ def chat_page():
             st.error(str(e))
             return
 
-    # ✅ Only process document if uploaded
     if uploaded_file and "retriever" not in st.session_state:
         with st.spinner("Processing document..."):
             temp_file_path = "temp.pdf"
             with open(temp_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            
+
             text_chunks = get_text_chunks(temp_file_path)
             if text_chunks:
                 vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
@@ -190,12 +171,9 @@ def chat_page():
                     st.sidebar.error("Could not create vector store. Try another PDF.")
             else:
                 st.sidebar.error("Text extraction failed. Upload a readable PDF.")
-            
+
             os.remove(temp_file_path)
 
-
-
-    # Define tools for the agent
     tools = [st.session_state.tavily_tool]
     if "retriever" in st.session_state:
         retriever_tool = create_retriever_tool(
@@ -205,7 +183,6 @@ def chat_page():
         )
         tools.append(retriever_tool)
 
-    # Construct the chat prompt template
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         ("placeholder", "{chat_history}"),
@@ -213,21 +190,17 @@ def chat_page():
         ("placeholder", "{agent_scratchpad}"),
     ])
 
-    # Create the agent and executor
     agent = create_tool_calling_agent(st.session_state.chat_model, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True) # Added verbose for debugging
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-    # Initialize chat history in session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Display previous messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Handle new user input
-    if st.session_state.chat_model: # Only allow input if chat model is initialized
+    if st.session_state.chat_model:
         if prompt_input := st.chat_input("Type your message here..."):
             st.session_state.messages.append({"role": "user", "content": prompt_input})
             with st.chat_message("user"):
@@ -239,11 +212,6 @@ def chat_page():
                 st.session_state.messages.append({"role": "assistant", "content": response})
     else:
         st.info("No API keys found or model initialization failed. Please check the Instructions page and your API keys.")
-
-
-# ==============================================================================
-# Main App Entrypoint
-# ==============================================================================
 
 def main():
     st.set_page_config(
@@ -265,13 +233,12 @@ def main():
                     os.remove("temp.pdf")
                 if "retriever" in st.session_state:
                     del st.session_state.retriever
-                st.rerun() # Corrected from st.experimental_rerun()
+                st.rerun()
 
     if page == "Instructions":
         instructions_page()
     else:
         chat_page()
-
 
 if __name__ == "__main__":
     main()
