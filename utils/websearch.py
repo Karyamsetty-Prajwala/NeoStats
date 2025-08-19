@@ -5,7 +5,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 def get_tavily_tool():
-    """Initializes and returns the Tavily web search tool."""
+    
     try:
         # Get the API key from environment variables
         api_key = os.getenv("WEB_SEARCH_API_KEY")

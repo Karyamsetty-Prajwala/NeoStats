@@ -17,4 +17,9 @@ unstructured[local-inference]
 unstructured_inference
 pdfplumber
 nest_asyncio
+streamlit
+pdfplumber
+langchain
+python-dotenv
+spacy
 

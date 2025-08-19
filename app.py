@@ -10,9 +10,6 @@ from models.embeddings import get_gemini_embeddings
 # Import TavilySearch BEFORE it is used
 from langchain_tavily import TavilySearch
 
-# Get API key from .env AFTER importing TavilySearch
-api_key = os.getenv("TAVILY_API_KEY")
-
 # Other necessary imports
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate
@@ -25,6 +22,10 @@ from models.llm import get_chatgroq_model
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.retriever import create_retriever_tool
 from langchain.schema import Document
+
+# Import your custom utility functions
+from utils.rag import get_text_chunks, get_vector_store
+from utils.websearch import get_tavily_tool
 
 def get_text_chunks_pdfplumber(file_path):
     with pdfplumber.open(file_path) as pdf:
@@ -42,35 +43,19 @@ def get_text_chunks_pdfplumber(file_path):
         start += chunk_size - overlap
     return chunks
 
-def get_vector_store(text_chunks, embeddings_model):
-    try:
-        if not text_chunks:
-            st.warning("Cannot create vector store: No text chunks were provided.")
-            return None
+def get_system_prompt(response_mode):
+    base_prompt = """You are a helpful and intelligent legal assistant. Your primary function is to answer questions based on the uploaded legal document.
+You should also use the Tavily Search tool to find recent legal updates or supplementary information when the question requires it.
+If the question is about a specific document, use the `legal_document_search` tool.
+If the question requires general legal knowledge or web searches, use the `tavily_search_results_json` tool.
+Always cite your sources and be concise and professional.
+The documents you retrieve have metadata including 'entities' and 'pos_tags' which can help you understand the context of the user's question and find more relevant information.
+For example, if the user asks about a person, you can look for the 'PERSON' entity in the document chunks to provide a more specific answer."""
 
-        documents = [Document(page_content=chunk) for chunk in text_chunks]
-
-        print(f"Number of chunks: {len(documents)}")
-        print(f"Embedding model: {embeddings_model}")
-        vector_store = FAISS.from_documents(documents=documents, embedding=embeddings_model)
-        return vector_store
-    except Exception as e:
-        import traceback
-        print("Traceback for vector store failure:\n", traceback.format_exc())
-        st.error(f"Failed to create vector store: {str(e)}. This might happen if the document is too small or unreadable.")
-        return None
-
-def get_tavily_tool():
-    try:
-        api_key = os.getenv("TAVILY_API_KEY")
-        if not api_key:
-            st.error("TAVILY_API_KEY not set in environment variables. Please set it.")
-            st.stop()
-        tavily_tool = TavilySearch(api_key=api_key)
-        return tavily_tool
-    except Exception as e:
-        st.error(f"Failed to initialize Tavily Search Tool: {str(e)}")
-        st.stop()
+    if response_mode == "Concise":
+        return base_prompt + "\nRespond concisely and summarize answers clearly in 1-2 sentences when possible."
+    else:
+        return base_prompt + "\nProvide detailed, thorough answers with reasoning and explanation when appropriate."
 
 def get_agent_response(agent_executor, messages):
     try:
@@ -90,17 +75,6 @@ def get_agent_response(agent_executor, messages):
         st.error(f"Error getting response from agent: {str(e)}")
         return "An error occurred while generating the response."
 
-def get_system_prompt(response_mode):
-    base_prompt = """You are a helpful legal assistant. Your primary function is to answer questions based on the uploaded legal document.
-You should also use the Tavily Search tool to find recent legal updates or supplementary information when the question requires it.
-If the question is about a specific document, use the `legal_document_search` tool.
-If the question requires general legal knowledge or web searches, use the `tavily_search_results_json` tool.
-Always cite your sources and be concise and professional."""
-
-    if response_mode == "Concise":
-        return base_prompt + "\nRespond concisely and summarize answers clearly in 1-2 sentences when possible."
-    else:
-        return base_prompt + "\nProvide detailed, thorough answers with reasoning and explanation when appropriate."
 
 def instructions_page():
     st.title("The Chatbot Blueprint")
@@ -108,6 +82,7 @@ def instructions_page():
     ## 📅 Installation
     ```bash
     pip install -r requirements.txt
+    python -m spacy download en_core_web_sm
     ```
     ---
     ## API Key Setup
@@ -125,9 +100,6 @@ def instructions_page():
     ---
     Navigate to the **Chat** page to start.
     """)
-
-def get_text_chunks(file_path):
-    return get_text_chunks_pdfplumber(file_path)
 
 def chat_page():
     st.title("🤖 AI Legal Assistant")
@@ -163,22 +135,23 @@ def chat_page():
     if uploaded_file and "retriever" not in st.session_state:
         with st.spinner("Processing document..."):
             temp_file_path = "temp.pdf"
-        with open(temp_file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+            with open(temp_file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
 
-        text_chunks = get_text_chunks(temp_file_path)
-        if text_chunks:
-            vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
-            if vector_store:
-                st.session_state.retriever = vector_store.as_retriever()
-                st.sidebar.success("Document processed!")
+            text_chunks = get_text_chunks(temp_file_path)
+            
+            if text_chunks:
+                vector_store = get_vector_store(text_chunks, st.session_state.embeddings)
+                if vector_store:
+                    st.session_state.retriever = vector_store.as_retriever()
+                    st.sidebar.success("Document processed!")
+                else:
+                    st.sidebar.error("Could not create vector store. Try another PDF.")
             else:
-                st.sidebar.error("Could not create vector store. Try another PDF.")
-        else:
-            st.sidebar.error("Text extraction failed. Upload a readable PDF.")
+                st.sidebar.error("Text extraction failed. Upload a readable PDF.")
 
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
 
     tools = [st.session_state.tavily_tool]
     if "retriever" in st.session_state:
