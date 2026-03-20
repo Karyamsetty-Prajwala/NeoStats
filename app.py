@@ -281,77 +281,57 @@ def build_sidebar():
 
 # ─── QUERY ROUTER ─────────────────────────────────────────────────────────────
 def handle_query(query: str):
-    from utils.memory_utils import save_message
+    from utils.agent_utils import get_agent_executor
+    from langchain_core.messages import HumanMessage, AIMessage
+    
+    # Initialize the current chart session state to None before evaluation
+    if 'current_chart' in st.session_state:
+        st.session_state.current_chart = None
+    else:
+        st.session_state['current_chart'] = None
 
-    lower_q    = query.lower()
-    mode_instr = config.CONCISE_PROMPT if st.session_state.response_mode == "Concise" else config.DETAILED_PROMPT
-    provider   = st.session_state.llm_provider
-    df         = get_dataframe()
-    context    = ""
-    fig        = None
-
-    # ── Uploaded file context (highest priority) ──────────────────────────────
+    agent = get_agent_executor(st.session_state.llm_provider)
+    
+    lc_history = []
+    # Only pass the last 6 messages to avoid token limit overflow for the agent
+    for m in st.session_state.messages[-6:]:
+        if m["role"] == "user":
+            lc_history.append(HumanMessage(content=m["content"]))
+        else:
+            lc_history.append(AIMessage(content=m["content"]))
+            
+    uploaded_instructions = ""
     if st.session_state.uploaded_file_context:
-        context += f"\n\n[UPLOADED FILE: {st.session_state.uploaded_file_name}]\n{st.session_state.uploaded_file_context}"
+        uploaded_instructions = f"Attached file text explicitly provided by user:\n{st.session_state.uploaded_file_context}"
 
-    # ── Live Web Search ───────────────────────────────────────────────────────
-    if any(k in lower_q for k in ["news", "latest", "recently", "2024", "2025", "current"]):
-        with st.status("🔍 Live web search…", expanded=False):
-            try:
-                context += f"\n\n[WEB SEARCH]\n{lazy_search(query)}"
-            except Exception as e:
-                context += f"\n\n[Web search error: {e}]"
-
-    # ── RAG from docs/ ────────────────────────────────────────────────────────
-    if any(k in lower_q for k in ["report", "pdf", "nasscom", "document", "case study", "neostats"]):
-        with st.status("📄 Searching knowledge base…", expanded=False):
-            try:
-                context += f"\n\n[RAG KNOWLEDGE BASE]\n{lazy_rag(query)}"
-            except Exception as e:
-                context += f"\n\n[RAG error: {e}]"
-
-    # ── CSV Data Analysis ─────────────────────────────────────────────────────
-    if any(k in lower_q for k in ["funding", "sector", "startup", "year", "city", "investor",
-                                    "top", "how many", "unicorn", "trend", "edtech", "fintech"]) \
-            or (not context):
-        with st.status("📊 Analysing startup data…", expanded=False):
-            try:
-                ans, fig_res = lazy_analyze(query, df)
-                context += f"\n\n[CSV DATA ANALYSIS]\n{ans}"
-                if fig_res:
-                    fig = fig_res
-            except Exception as e:
-                context += f"\n\n[Data analysis error: {e}]"
-
-    history_text = "".join(
-        f"\n{m['role'].capitalize()}: {m['content']}"
-        for m in st.session_state.messages[-6:]
-    )
-
-    final_prompt = f"""You are the Indian Startup Intelligence Copilot.
-CRITICAL RULE: When displaying quantitative values like funding amounts, ALWAYS format them in Indian Rupees (₹) by default (e.g., using Crores or Lakhs where appropriate) unless explicitly asked for dollars. Convert if necessary.
-
-Conversation so far:{history_text}
-
-User asked: "{query}"
-
-Context from agents:
-{context}
-
-{mode_instr}
-Use markdown. Bold key insights. Be professional and thorough.
-"""
-
-    with st.status("🤖 Generating response…", expanded=False):
+    with st.status("🤖 Consulting Copilot Agents…", expanded=True) as status:
         try:
-            answer = lazy_llm(final_prompt, provider=provider)
-        except Exception:
+            response = agent.invoke({
+                "input": query,
+                "chat_history": lc_history,
+                "agent_scratchpad": [],
+                "uploaded_file_instructions": uploaded_instructions
+            })
+            answer = response.get("output", "I could not generate an answer.")
+            status.update(label="✅ Answer ready!", state="complete", expanded=False)
+        except Exception as e:
+            # Fallback to groq if the selected model doesn't support tools
+            st.warning(f"Selected model failed tool calling ({e}). Falling back to Groq...")
             try:
-                answer = lazy_llm(final_prompt, provider="groq")
-            except Exception as e:
-                answer = f"⚠️ Error: {e}"
+                backup_agent = get_agent_executor("groq")
+                response = backup_agent.invoke({
+                    "input": query,
+                    "chat_history": lc_history,
+                    "agent_scratchpad": [],
+                    "uploaded_file_instructions": uploaded_instructions
+                })
+                answer = response.get("output", "I could not generate an answer.")
+                status.update(label="✅ Answer ready (via backup model)!", state="complete", expanded=False)
+            except Exception as backup_e:
+                answer = f"⚠️ Critical Error during agent execution: {backup_e}"
+                status.update(label="❌ Agents Failed", state="error", expanded=False)
 
-    return answer, fig
+    return answer, st.session_state.current_chart
 
 
 # ─── CHAT INTERFACE ───────────────────────────────────────────────────────────

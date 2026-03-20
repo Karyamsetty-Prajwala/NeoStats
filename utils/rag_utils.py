@@ -2,6 +2,9 @@ import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+from langchain.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
+import pickle
 from models.embeddings import get_embeddings
 import config.config as config
 
@@ -16,16 +19,20 @@ def setup_vector_store():
 
     embeddings = get_embeddings()
 
+    bm25_path = os.path.join(config.VECTORSTORE_PATH, "bm25_retriever.pkl")
+
     # Check if vectorstore exists
-    if os.path.exists(index_path):
-        print(f"Loading existing FAISS vector store from {index_path}")
+    if os.path.exists(index_path) and os.path.exists(bm25_path):
+        print(f"Loading existing Hybrid vector store from {index_path}")
         vectorstore = FAISS.load_local(
             config.VECTORSTORE_PATH, 
             embeddings, 
             index_name=index_name,
             allow_dangerous_deserialization=True # required for FAISS local load in trusted env
         )
-        return vectorstore
+        with open(bm25_path, "rb") as f:
+            bm25_retriever = pickle.load(f)
+        return vectorstore, bm25_retriever
     
     print(f"Creating new FAISS vector store from {config.DOCS_PATH}")
     loader = PyPDFDirectoryLoader(config.DOCS_PATH)
@@ -46,12 +53,23 @@ def setup_vector_store():
     vectorstore = FAISS.from_documents(splits, embeddings)
     vectorstore.save_local(config.VECTORSTORE_PATH, index_name)
     
-    return vectorstore
+    # Store Sparse BM25
+    bm25_retriever = BM25Retriever.from_documents(splits)
+    bm25_retriever.k = config.MAX_RETRIEVAL_DOCS
+    with open(bm25_path, "wb") as f:
+        pickle.dump(bm25_retriever, f)
+        
+    return vectorstore, bm25_retriever
 
 def get_retriever():
-    """Returns a retriever interface for the local vector store."""
-    vectorstore = setup_vector_store()
-    return vectorstore.as_retriever(search_kwargs={"k": config.MAX_RETRIEVAL_DOCS})
+    """Returns a hybrid ensemble retriever interface."""
+    vectorstore, bm25_retriever = setup_vector_store()
+    faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": config.MAX_RETRIEVAL_DOCS})
+    
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=[bm25_retriever, faiss_retriever], weights=[0.5, 0.5]
+    )
+    return ensemble_retriever
 
 def retrieve_context(query: str) -> str:
     """Helper method to format retrieved docs into a context string."""

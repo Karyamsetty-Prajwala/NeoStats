@@ -21,3 +21,5 @@ python-docx
 tabulate
 openpyxl
 xlrd
+rank_bm25
+langchainhub

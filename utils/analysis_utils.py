@@ -35,13 +35,14 @@ def load_data():
         st.error(f"Error loading CSV: {e}")
         return pd.DataFrame()
 
-def analyze_dataset(query: str, df: pd.DataFrame) -> tuple:
+def analyze_startup_csv(query: str) -> str:
     """
-    Analyzes the dataframe and returns a markdown response and a plotly figure (if any).
-    We use the LLM to interpret the question, figure out the data, and we do the actual aggregation here.
+    Analyzes the dataframe and returns a markdown response.
+    Sets any generated plotly figures in st.session_state.current_chart.
     """
+    df = load_data()
     if df.empty:
-        return "Dataset is empty or not loaded.", None
+        return "Dataset is empty or not loaded."
 
     schema = df.dtypes.to_dict()
     head = df.head(3).to_dict()
@@ -85,4 +86,5 @@ To help you generate a response, consider extracting the key intent. Since you d
             yearly = df.groupby('year').size().reset_index(name='count')
             fig = px.line(yearly, x='year', y='count', title='Funding Trend by Year')
             
-    return response_text, fig
+    st.session_state.current_chart = fig
+    return response_text
