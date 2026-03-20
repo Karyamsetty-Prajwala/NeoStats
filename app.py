@@ -177,14 +177,14 @@ def login_form():
                     except Exception as e:
                         err = str(e)
                         st.warning(f"⏳ {err}") if "after" in err else st.error(f"Signup failed: {err}")
-                        
-        st.markdown(
-            "<div style='text-align:center; padding: 1rem;'><p style='color:#aaa;'>— or —</p></div>", 
-            unsafe_allow_html=True
-        )
+                   # === EMERGENCY GUEST BYPASS ===
+        st.markdown("<p style='text-align: center; color: gray;'>— or —</p>", unsafe_allow_html=True)
         if st.button("🚪 Continue as Guest (Bypass Login)", use_container_width=True):
-            st.session_state.user_id    = "guest-user"
-            st.session_state.user_email = email if email else "guest@neostats.ai"
+            # Give every guest a unique ID so they don't see each other's chat history
+            unique_guest_id = f"guest_{uuid.uuid4().hex[:8]}"
+            st.session_state.user_id = unique_guest_id
+            st.session_state.user_email = f"{unique_guest_id}@example.com"
+            st.session_state.session_id = str(uuid.uuid4())
             st.rerun()
 
 
