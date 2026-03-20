@@ -11,7 +11,7 @@ load_dotenv()
 # Load Streamlit secrets into env vars (for Streamlit Cloud)
 try:
     for k, v in st.secrets.items():
-        os.environ.setdefault(k, v)
+        os.environ[k] = str(v)
 except Exception:
     pass
 
