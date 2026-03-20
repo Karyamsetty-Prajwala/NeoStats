@@ -17,8 +17,8 @@ SERPER_API_KEY = get_secret("SERPER_API_KEY")
 OPENROUTER_API_KEY = get_secret("OPENROUTER_API_KEY")
 
 # SUPABASE CONFIG
-SUPABASE_URL = get_secret("SUPABASE_URL")
-SUPABASE_KEY = get_secret("SUPABASE_KEY")
+supabase_url = st.secrets["SUPABASE_URL"]
+supabase_key = st.secrets["SUPABASE_KEY"]
 
 # ============================================================
 # LLM SETTINGS
