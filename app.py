@@ -283,6 +283,7 @@ def build_sidebar():
 def handle_query(query: str):
     from utils.agent_utils import get_agent_executor
     from langchain_core.messages import HumanMessage, AIMessage
+    import config.config as custom_config
     
     # Initialize the current chart session state to None before evaluation
     if 'current_chart' in st.session_state:
@@ -290,7 +291,10 @@ def handle_query(query: str):
     else:
         st.session_state['current_chart'] = None
 
-    agent = get_agent_executor(st.session_state.llm_provider)
+    response_mode = st.session_state.get("response_mode", "Detailed")
+    response_instructions = custom_config.CONCISE_PROMPT if response_mode == "Concise" else custom_config.DETAILED_PROMPT
+
+    agent = get_agent_executor(st.session_state.llm_provider, response_instructions=response_instructions)
     
     lc_history = []
     # Only pass the last 6 messages to avoid token limit overflow for the agent
