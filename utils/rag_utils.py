@@ -2,7 +2,10 @@ import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.retrievers import EnsembleRetriever
+try:
+    from langchain.retrievers import EnsembleRetriever
+except ImportError:
+    EnsembleRetriever = None
 from langchain_community.retrievers import BM25Retriever
 import pickle
 from models.embeddings import get_embeddings
@@ -66,10 +69,13 @@ def get_retriever():
     vectorstore, bm25_retriever = setup_vector_store()
     faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": config.MAX_RETRIEVAL_DOCS})
     
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=[bm25_retriever, faiss_retriever], weights=[0.5, 0.5]
-    )
-    return ensemble_retriever
+    if EnsembleRetriever:
+        return EnsembleRetriever(
+            retrievers=[bm25_retriever, faiss_retriever], weights=[0.5, 0.5]
+        )
+    else:
+        # Fallback to standard vector retrieval if Hybrid is unavailable
+        return faiss_retriever
 
 def retrieve_context(query: str) -> str:
     """Helper method to format retrieved docs into a context string."""
