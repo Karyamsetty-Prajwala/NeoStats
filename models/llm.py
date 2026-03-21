@@ -7,18 +7,16 @@ import config.config as config
 def get_llm(provider: str = None):
     """
     Returns the LangChain chat model based on the selected provider.
-    Defaults to the DEFAULT_LLM_PROVIDER in config.
+    Now optimized to use OpenRouter for Gemini to avoid 404 errors.
     """
     if provider is None:
         provider = config.DEFAULT_LLM_PROVIDER
 
     provider = provider.lower()
 
-    if provider == "openrouter":
-        if not config.OPENROUTER_API_KEY:
-            # Fallback to gemini if OpenRouter key is missing
-            return get_llm("gemini")
-            
+    # UNIVERSAL GEMINI FIX: If user selects Gemini, we use OpenRouter's version
+    # because the native SDK is hitting 404 errors on some accounts.
+    if provider == "gemini" or provider == "openrouter":
         return ChatOpenAI(
             openai_api_key=config.OPENROUTER_API_KEY,
             openai_api_base="https://openrouter.ai/api/v1",
@@ -33,25 +31,10 @@ def get_llm(provider: str = None):
             model_name=config.GROQ_MODEL,
             temperature=0.7
         )
-
-    elif provider == "gemini":
-        # Try the configured model first
-        try:
-            return ChatGoogleGenerativeAI(
-                google_api_key=config.GEMINI_API_KEY,
-                model=config.GEMINI_MODEL,
-                temperature=0.7
-            )
-        except Exception:
-            # Fallback to the most basic stable name if 1.5-flash fails
-            return ChatGoogleGenerativeAI(
-                google_api_key=config.GEMINI_API_KEY,
-                model="gemini-pro",
-                temperature=0.7
-            )
     
     else:
-        raise ValueError(f"Unknown LLM Provider: {provider}")
+        # Emergency fallback for anything else
+        return get_llm("openrouter")
 
 def generate_response(prompt: str, provider: str = None) -> str:
     """Helper function for quick generations."""
