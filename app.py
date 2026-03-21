@@ -297,8 +297,8 @@ def handle_query(query: str):
     agent = get_agent_executor(st.session_state.llm_provider, response_instructions=response_instructions)
     
     lc_history = []
-    # Only pass the last 6 messages to avoid token limit overflow for the agent
-    for m in st.session_state.messages[-6:]:
+    # Only pass the last 12 messages for better context (e.g. remembering names)
+    for m in st.session_state.messages[-12:]:
         if m["role"] == "user":
             lc_history.append(HumanMessage(content=m["content"]))
         else:
@@ -423,6 +423,10 @@ def main():
         )
 
         if selected == "Chat":
+            if not st.session_state.messages:
+                user_display = st.session_state.user_email.split('@')[0] if st.session_state.user_email else "there"
+                greeting = f"Hi {user_display}! 🚀 I'm your Indian Startup Intelligence Copilot. How can I help you today?"
+                st.session_state.messages.append({"role": "assistant", "content": greeting})
             chat_interface()
         elif selected == "Admin Dashboard":
             admin_dashboard()
