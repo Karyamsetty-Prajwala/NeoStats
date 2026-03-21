@@ -1,4 +1,8 @@
 import streamlit as st
+import sys
+import langchain.agents
+print(f"DEBUG: sys.path: {sys.path}")
+print(f"DEBUG: langchain.agents content: {dir(langchain.agents)}")
 
 # Safe import for AgentExecutor (handles diff langchain versions)
 try:
@@ -7,10 +11,14 @@ except ImportError:
     try:
         from langchain.agents.agent_executor import AgentExecutor
     except ImportError:
-        # Emergency dummy fallback if langchain is completely mangled
-        class AgentExecutor:
-            def __init__(self, *args, **kwargs): pass
-            def invoke(self, *args, **kwargs): return {"output": "Agent initialization failed. Please check dependencies."}
+        try:
+             # Try one more deep path
+             from langchain.agents.agent_executor.base import AgentExecutor
+        except ImportError:
+            # Emergency dummy fallback if langchain is completely mangled
+            class AgentExecutor:
+                def __init__(self, *args, **kwargs): pass
+                def invoke(self, *args, **kwargs): return {"output": "Agent initialization failed. Please check server logs for 'DEBUG' info."}
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.tools import tool
