@@ -322,7 +322,7 @@ def handle_query(query: str):
             # Fallback to groq if the selected model doesn't support tools
             st.warning(f"Selected model failed tool calling ({e}). Falling back to Groq...")
             try:
-                backup_agent = get_agent_executor("groq")
+                backup_agent = get_agent_executor("groq", response_instructions=response_instructions)
                 response = backup_agent.invoke({
                     "input": query,
                     "chat_history": lc_history,
