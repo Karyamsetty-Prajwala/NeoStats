@@ -26,8 +26,8 @@ SUPABASE_KEY = get_secret("SUPABASE_KEY")
 # ============================================================
 DEFAULT_LLM_PROVIDER = "openrouter"  # "openrouter", "gemini" or "groq"
 GEMINI_MODEL = "gemini-1.5-flash"
-GROQ_MODEL = "llama-3.1-70b-versatile"
-OPENROUTER_MODEL = "google/gemini-flash-1.5-8b"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+OPENROUTER_MODEL = "google/gemini-2.0-flash-001"
 
 # ============================================================
 # RAG SETTINGS
