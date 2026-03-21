@@ -1,34 +1,44 @@
 import streamlit as st
 import sys
+import langchain
+import langchain_core
 import langchain.agents
-print(f"DEBUG: sys.path: {sys.path}")
-print(f"DEBUG: langchain.agents content: {dir(langchain.agents)}")
 
-# Safe import for AgentExecutor (handles diff langchain versions)
+DEBUG_LOGS = []
+def debug_print(msg):
+    DEBUG_LOGS.append(str(msg))
+    print(msg)
+
+debug_print(f"LangChain: {langchain.__version__}")
+debug_print(f"LangChain Core: {langchain_core.__version__}")
+try:
+    debug_print(f"Agents Dir: {dir(langchain.agents)[:20]}...") 
+except:
+    debug_print("Could not dir(langchain.agents)")
+
+# Safe import for AgentExecutor
 try:
     from langchain.agents import AgentExecutor
 except ImportError:
+    debug_print("Import from langchain.agents failed")
     try:
         from langchain.agents.agent_executor import AgentExecutor
     except ImportError:
+        debug_print("Import from langchain.agents.agent_executor failed")
         try:
-             # Try one more deep path
              from langchain.agents.agent_executor.base import AgentExecutor
         except ImportError:
-            # Emergency dummy fallback if langchain is completely mangled
+            debug_print("All AgentExecutor imports failed")
             class AgentExecutor:
                 def __init__(self, *args, **kwargs): pass
-                def invoke(self, *args, **kwargs): return {"output": "Agent initialization failed. Please check server logs for 'DEBUG' info."}
+                def invoke(self, *args, **kwargs): 
+                    return {"output": f"❌ Agent Init Failed.\n\nDEBUG INFO:\n" + "\n".join(DEBUG_LOGS)}
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.tools import tool
 from utils.search_utils import search_web
 from utils.rag_utils import retrieve_context
 from utils.analysis_utils import analyze_startup_csv
-import langchain
-import langchain_core
-print(f"DEBUG: LangChain version: {langchain.__version__}")
-print(f"DEBUG: LangChain Core version: {langchain_core.__version__}")
 
 from models.llm import get_llm
 
@@ -75,7 +85,7 @@ def get_agent_executor(provider: str = None, response_instructions: str = "") ->
         agent = create_tool_calling_agent(llm, tools, prompt)
         return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
     except Exception as e:
-        print(f"Tool calling init failed: {e}")
+        debug_print(f"Tool calling init failed: {e}")
         try:
             from langchain.agents import create_react_agent
             from langchain import hub
@@ -84,6 +94,6 @@ def get_agent_executor(provider: str = None, response_instructions: str = "") ->
             agent = create_react_agent(llm, tools, react_prompt)
             return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
         except Exception as e2:
-            print(f"React fallback failed: {e2}")
+            debug_print(f"React fallback failed: {e2}")
             # Final dummy fallback so it doesn't crash app
             return AgentExecutor()
