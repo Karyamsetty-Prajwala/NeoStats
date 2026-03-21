@@ -25,9 +25,9 @@ SUPABASE_KEY = get_secret("SUPABASE_KEY")
 # LLM SETTINGS
 # ============================================================
 DEFAULT_LLM_PROVIDER = "openrouter"  # "openrouter", "gemini" or "groq"
-GEMINI_MODEL = "gemini-1.5-flash-latest"
-GROQ_MODEL = "llama-3.1-8b-instant"
-OPENROUTER_MODEL = "arcee-ai/trinity-mini:free"
+GEMINI_MODEL = "gemini-1.5-flash"
+GROQ_MODEL = "llama-3.1-70b-versatile"
+OPENROUTER_MODEL = "google/gemini-flash-1.5-8b"
 
 # ============================================================
 # RAG SETTINGS
@@ -35,7 +35,7 @@ OPENROUTER_MODEL = "arcee-ai/trinity-mini:free"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 MAX_RETRIEVAL_DOCS = 4
-EMBEDDING_MODEL = "models/embedding-001"
+EMBEDDING_MODEL = "models/text-embedding-004"
 
 # ============================================================
 # DATA PATHS
