@@ -1,10 +1,27 @@
 import streamlit as st
-from langchain.agents import AgentExecutor
+
+# Safe import for AgentExecutor (handles diff langchain versions)
+try:
+    from langchain.agents import AgentExecutor
+except ImportError:
+    try:
+        from langchain.agents.agent_executor import AgentExecutor
+    except ImportError:
+        # Emergency dummy fallback if langchain is completely mangled
+        class AgentExecutor:
+            def __init__(self, *args, **kwargs): pass
+            def invoke(self, *args, **kwargs): return {"output": "Agent initialization failed. Please check dependencies."}
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.tools import tool
 from utils.search_utils import search_web
 from utils.rag_utils import retrieve_context
 from utils.analysis_utils import analyze_startup_csv
+import langchain
+import langchain_core
+print(f"DEBUG: LangChain version: {langchain.__version__}")
+print(f"DEBUG: LangChain Core version: {langchain_core.__version__}")
+
 from models.llm import get_llm
 
 @tool
@@ -50,11 +67,15 @@ def get_agent_executor(provider: str = None, response_instructions: str = "") ->
         agent = create_tool_calling_agent(llm, tools, prompt)
         return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
     except Exception as e:
-        # Fallback to react agent if tool calling isn't natively supported by the provider
-        print(f"Tool calling init failed, falling back to ReAct: {e}")
-        from langchain.agents import create_react_agent
-        from langchain import hub
-        react_prompt = hub.pull("hwchase17/react")
-        react_prompt = react_prompt.partial(uploaded_file_instructions="{uploaded_file_instructions}")
-        agent = create_react_agent(llm, tools, react_prompt)
-        return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+        print(f"Tool calling init failed: {e}")
+        try:
+            from langchain.agents import create_react_agent
+            from langchain import hub
+            react_prompt = hub.pull("hwchase17/react")
+            react_prompt = react_prompt.partial(uploaded_file_instructions="{uploaded_file_instructions}")
+            agent = create_react_agent(llm, tools, react_prompt)
+            return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+        except Exception as e2:
+            print(f"React fallback failed: {e2}")
+            # Final dummy fallback so it doesn't crash app
+            return AgentExecutor()
