@@ -21,6 +21,8 @@ class ManualAgentExecutor:
         query = inputs.get("input", "")
         chat_history = inputs.get("chat_history", [])
         uploaded_file_instructions = inputs.get("uploaded_file_instructions", "")
+        # Identity persistence: Get name from email if available
+        user_display = st.session_state.get('user_email', 'User').split('@')[0]
         
         llm = get_llm(self.provider)
         
@@ -60,7 +62,8 @@ class ManualAgentExecutor:
         
         # Prepare messages
         system_msg = (
-            "You are the Indian Startup Intelligence Copilot, an autonomous assistant. "
+            "You are the Indian Startup Intelligence Copilot, a friendly and professional autonomous assistant. "
+            f"You are talking to {user_display}. Always greet them warmly and remember any personal details they share (like their name).\n\n"
             "You MUST use your tools to answer user queries accurately. "
             "If the user asks about recent events, use search_the_web. "
             "If they ask about CSV data or funding records, use analyze_startup_data. "
@@ -85,26 +88,20 @@ class ManualAgentExecutor:
         
         # Execution Loop (Max 5 turns)
         for _ in range(5):
-            # We convert to langchain messages format for the call
-            lc_messages = []
+            # Convert to langchain messages format for the call
+            lc_msgs = []
             for m in messages:
-                if m["role"] == "system": lc_messages.append(AIMessage(content=m["content"])) # hack for some models
-                elif m["role"] == "user": lc_messages.append(HumanMessage(content=m["content"]))
-                elif m["role"] == "assistant": lc_messages.append(AIMessage(content=m["content"], tool_calls=m.get("tool_calls", [])))
-                elif m["role"] == "tool": lc_messages.append(ToolMessage(content=m["content"], tool_call_id=m["tool_call_id"]))
-
-            # For simplicity, convert the dict messages to LC objects just before calling
+                if m["role"] == "system": 
+                    # Many models handle System best as a clear separate instruction
+                    lc_msgs.append(HumanMessage(content=f"[SYSTEM INSTRUCTIONS]\n{m['content']}"))
+                elif m["role"] == "user": 
+                    lc_msgs.append(HumanMessage(content=m["content"]))
+                elif m["role"] == "assistant": 
+                    lc_msgs.append(AIMessage(content=m.get("content") or "", tool_calls=m.get("tool_calls", [])))
+                elif m["role"] == "tool": 
+                    lc_msgs.append(ToolMessage(content=m["content"], tool_call_id=m["tool_call_id"]))
+            
             try:
-                # Some models prefer system first
-                lc_msgs = []
-                for m in messages:
-                    if m["role"] == "system": lc_msgs.append(HumanMessage(content=f"[SYSTEM INSTRUCTION]\n{m['content']}")) # safer
-                    elif m["role"] == "user": lc_msgs.append(HumanMessage(content=m["content"]))
-                    elif m["role"] == "assistant": 
-                        lc_msgs.append(AIMessage(content=m.get("content", ""), tool_calls=m.get("tool_calls", [])))
-                    elif m["role"] == "tool": 
-                        lc_msgs.append(ToolMessage(content=m["content"], tool_call_id=m["tool_call_id"]))
-                
                 resp = llm_with_tools.invoke(lc_msgs)
                 
                 # Check for tool calls
