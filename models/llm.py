@@ -35,11 +35,20 @@ def get_llm(provider: str = None):
         )
 
     elif provider == "gemini":
-        return ChatGoogleGenerativeAI(
-            google_api_key=config.GEMINI_API_KEY,
-            model=config.GEMINI_MODEL,
-            temperature=0.7
-        )
+        # Try the configured model first
+        try:
+            return ChatGoogleGenerativeAI(
+                google_api_key=config.GEMINI_API_KEY,
+                model=config.GEMINI_MODEL,
+                temperature=0.7
+            )
+        except Exception:
+            # Fallback to the most basic stable name if 1.5-flash fails
+            return ChatGoogleGenerativeAI(
+                google_api_key=config.GEMINI_API_KEY,
+                model="gemini-pro",
+                temperature=0.7
+            )
     
     else:
         raise ValueError(f"Unknown LLM Provider: {provider}")
