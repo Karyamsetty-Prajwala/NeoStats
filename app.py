@@ -147,10 +147,13 @@ def login_form():
         st.markdown("### Sign In to Continue")
         email    = st.text_input("📧 Email",    placeholder="you@example.com", key="auth_email")
         password = st.text_input("🔑 Password", type="password", placeholder="••••••••", key="auth_password")
+        
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Sign In", use_container_width=True):
-                if not sb:
+                if not email or not password:
+                    st.error("Please provide both email and password.")
+                elif not sb:
                     st.session_state.user_id    = "local-demo-user"
                     st.session_state.user_email = email or "demo@local"
                     st.rerun()
@@ -159,28 +162,27 @@ def login_form():
                         res = sb.auth.sign_in_with_password({"email": email, "password": password})
                         st.session_state.user_id    = res.user.id
                         st.session_state.user_email = res.user.email
+                        st.session_state.session_id = str(uuid.uuid4())
                         st.rerun()
                     except Exception as e:
-                        err = str(e)
-                        if "Email not confirmed" in err:
-                            st.error("📬 Email not confirmed. Check your inbox or disable 'Confirm email' in Supabase Dashboard → Auth → Providers → Email.")
-                        else:
-                            st.error(f"Login failed: {err}")
+                        st.error(f"Login failed: {e}")
+        
         with c2:
             if st.button("Sign Up", use_container_width=True):
-                if not sb:
-                    st.warning("Supabase not connected – use Sign In for local demo.")
+                if not email or not password:
+                    st.error("Please provide both email and password.")
+                elif not sb:
+                    st.warning("Supabase not connected.")
                 else:
                     try:
                         sb.auth.sign_up({"email": email, "password": password})
-                        st.success("✅ Signed up! Check your email, then Sign In.")
+                        st.success("✅ Signed up! Check your inbox.")
                     except Exception as e:
-                        err = str(e)
-                        st.warning(f"⏳ {err}") if "after" in err else st.error(f"Signup failed: {err}")
-                   # === EMERGENCY GUEST BYPASS ===
-        st.markdown("<p style='text-align: center; color: gray;'>— or —</p>", unsafe_allow_html=True)
+                        st.error(f"Signup failed: {e}")
+
+        # === EMERGENCY GUEST BYPASS ===
+        st.markdown("<p style='text-align: center; color: gray; margin-top: 2rem;'>— or —</p>", unsafe_allow_html=True)
         if st.button("🚪 Continue as Guest (Bypass Login)", use_container_width=True):
-            # Give every guest a unique ID so they don't see each other's chat history
             unique_guest_id = f"guest_{uuid.uuid4().hex[:8]}"
             st.session_state.user_id = unique_guest_id
             st.session_state.user_email = f"{unique_guest_id}@example.com"
